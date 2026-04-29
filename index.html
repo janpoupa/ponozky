@@ -209,6 +209,14 @@ function prepareNextSock() {
   nextSockImage.src = src; // preload
 }
 
+const preloadedBackgrounds = [];
+
+for (let i = 1; i <= 10; i++) {
+  const img = new Image();
+  img.src = `assets/cards/${i}.png`;
+  preloadedBackgrounds.push(img);
+}
+
 function spawnSock() {
   if (!nextSockData) prepareNextSock();
 
@@ -216,8 +224,8 @@ function spawnSock() {
 
   sockImg.src = nextSockData.src;
 
-  const bgIndex = Math.floor(Math.random() * 10) + 1;
-  cardBg.src = `assets/cards/${bgIndex}.png`;
+  const bg = rand(preloadedBackgrounds);
+  cardBg.src = bg.src;
 
   prepareNextSock(); // připrav další dopředu
 }
