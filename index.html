@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Boldonse&display=swap" rel="stylesheet">
+<title>Swipe Game</title>
+
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  touch-action: none;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #111;
+font-family: "Boldonse", system-ui;
+font-weight: 400;
+font-style: normal;
+  color: #fff;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* HUD */
+.hud {
+  position: absolute;
+  top: 20px;
+  width: 100%;
+  display: flex;
+  justify-content: space-around;
+  font-size: 18px;
+}
+
+/* CARD */
+.card-container {
+  width: 70%;
+  height: 70%;
+  position: absolute;
+  transform: translate(0,0);
+  will-change: transform;
+  transition: transform 0.3s ease;
+}
+
+.card-background,
+.sock-image {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.sock-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+    width: 80%;
+  height: 80%;
+}
+
+/* OVERLAY */
+.overlay {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  text-align: center;
+}
+
+#overlayText {
+  font-size: 40px;
+  text-transform: uppercase;
+}
+
+button {
+  padding: 12px 24px;
+  font-size: 18px;
+  margin-top: 20px;
+  font-family: "Boldonse", system-ui;
+}
+
+/* CORNER HINTS */
+.hint {
+  position: absolute;
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.hint.top-left { bottom: 50%; left: -20px; transform: translateX(-50%); rotate: -90deg;}
+.hint.top-right { bottom: 50%; right: -25px; transform: translateX(50%); rotate: 90deg;}
+.hint.bottom-left { bottom: 25px; left: 50%; transform: translateX(-50%); }
+.hint.bottom-right { top: 70px; right: 50%; transform: translateX(50%); }
+
+
+</style>
+</head>
+<body>
+
+<div class="hud">
+  <div id="time">Čas: 30s</div>
+  <div id="remaining">Zbývá: 20</div>
+</div>
+
+<!-- HINTS -->
+<div class="hint top-left">Dlouhá, Nic</div>
+<div class="hint top-right">Dlouhá, Číslo</div>
+<div class="hint bottom-left">Krátká, Nic</div>
+<div class="hint bottom-right">Krátká, Číslo</div>
+
+<!-- CARD -->
+<div class="card-container" id="card">
+  <img class="card-background" id="cardBg" src="">
+  <img class="sock-image" id="sockImg" src="">
+</div>
+
+<!-- OVERLAY -->
+<div class="overlay" id="overlay">
+  <div id="overlayText">Třídění ponožek</div>
+  <div id="overlayTextins" style="margin-top:15px; font-size:14px; opacity:0.8;">
+    <div>1. Koukni na ponožku</div>
+    <div>2. Swipni do správné strany</div>
+    <div>3. Neztrať čas chybou</div>
+  </div>
+  <button id="startBtn">START</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+
+<script>
+const card = document.getElementById('card');
+const cardBg = document.getElementById('cardBg');
+const sockImg = document.getElementById('sockImg');
+
+const timeEl = document.getElementById('time');
+const remainingEl = document.getElementById('remaining');
+const overlay = document.getElementById('overlay');
+const overlayText = document.getElementById('overlayText');
+const overlayTextins = document.getElementById('overlayTextins');
+const startBtn = document.getElementById('startBtn');
+
+let posX = 0;
+let posY = 0;
+let isDragging = false;
+
+const THRESHOLD = 100;
+
+// GAME STATE
+let time = 30;
+let remaining = 20;
+let timer = null;
+let isGameRunning = false;
+
+// INDEXES (1–40 simulace)
+const range = (n) => Array.from({length: n}, (_,i)=>i+1);
+
+const indexy_D_C = range(40);
+const indexy_D_N = range(40);
+const indexy_K_C = range(40);
+const indexy_K_N = range(40);
+
+// CATEGORY MAP
+const categories = [
+  { key: "D_C", dir: "RIGHT", pool: indexy_D_C },
+  { key: "D_N", dir: "LEFT", pool: indexy_D_N },
+  { key: "K_C", dir: "UP", pool: indexy_K_C },
+  { key: "K_N", dir: "DOWN", pool: indexy_K_N }
+];
+
+let currentSock = null;
+
+function rand(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function spawnSock() {
+  const cat = rand(categories);
+  const index = rand(cat.pool);
+
+  currentSock = cat;
+
+  sockImg.src = `assets/socks/${cat.key}_${index}.png`;
+
+  const bgIndex = Math.floor(Math.random() * 10) + 1;
+  cardBg.src = `assets/cards/${bgIndex}.png`;
+}
+
+function updateHUD() {
+  timeEl.textContent = `Čas: ${time}s`;
+  remainingEl.textContent = `Zbývá: ${remaining}`;
+}
+
+function startGame() {
+  time = 30;
+  remaining = 20;
+  isGameRunning = true;
+
+  updateHUD();
+  spawnSock();
+
+  overlay.style.display = 'none';
+
+  timer = setInterval(() => {
+    time--;
+    updateHUD();
+
+    if (time <= 0) endGame(false);
+  }, 1000);
+}
+
+function endGame(win) {
+  clearInterval(timer);
+  isGameRunning = false;
+
+  overlay.style.display = 'flex';
+  overlayText.textContent = win ? "VYHRÁL JSI" : "GAME OVER";
+  overlayTextins.style.display = 'none';
+  startBtn.textContent = "HRÁT ZNOVU";
+}
+
+startBtn.addEventListener('click', startGame);
+
+// HAMMER
+const hammer = new Hammer(card);
+
+hammer.get('pan').set({
+  direction: Hammer.DIRECTION_ALL,
+  threshold: 0
+});
+
+hammer.on('panstart', () => {
+  if (!isGameRunning) return;
+  isDragging = true;
+  card.style.transition = 'none';
+});
+
+hammer.on('panmove', (e) => {
+  if (!isDragging || !isGameRunning) return;
+
+  posX = e.deltaX;
+  posY = e.deltaY;
+
+  card.style.transform = `translate(${posX}px, ${posY}px)`;
+});
+
+hammer.on('panend', () => {
+  if (!isGameRunning) return;
+
+  isDragging = false;
+
+  const absX = Math.abs(posX);
+  const absY = Math.abs(posY);
+
+  let direction = null;
+
+  if (absX > absY) {
+    if (absX > THRESHOLD) {
+      direction = posX > 0 ? 'RIGHT' : 'LEFT';
+    }
+  } else {
+    if (absY > THRESHOLD) {
+      direction = posY > 0 ? 'DOWN' : 'UP';
+    }
+  }
+
+  if (direction) {
+    let outX = posX;
+    let outY = posY;
+
+    if (direction === 'RIGHT') outX = window.innerWidth;
+    if (direction === 'LEFT') outX = -window.innerWidth;
+    if (direction === 'DOWN') outY = window.innerHeight;
+    if (direction === 'UP') outY = -window.innerHeight;
+
+    card.style.transition = 'transform 0.3s ease';
+    card.style.transform = `translate(${outX}px, ${outY}px)`;
+
+    if (direction === currentSock.dir) {
+      console.log("SPRÁVNĚ!");
+      remaining--;
+      if (remaining <= 0) endGame(true);
+    } else {
+      console.log("ŠPATNĚ!");
+      time -= 3;
+      if (time < 0) time = 0;
+    }
+
+    updateHUD();
+
+    setTimeout(() => {
+      card.style.transition = 'none';
+      card.style.transform = 'translate(0,0)';
+      posX = 0;
+      posY = 0;
+
+      if (isGameRunning) spawnSock();
+
+      requestAnimationFrame(() => {
+        card.style.transition = 'transform 0.3s ease';
+      });
+    }, 300);
+
+  } else {
+    card.style.transition = 'transform 0.3s ease';
+    card.style.transform = 'translate(0,0)';
+    posX = 0;
+    posY = 0;
+  }
+});
+
+// BLOCK SCROLL
+document.body.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+}, { passive: false });
+
+updateHUD();
+
+</script>
+
+</body>
+</html>
