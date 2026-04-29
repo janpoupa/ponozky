@@ -6,7 +6,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Boldonse&display=swap" rel="stylesheet">
-<title>Ponozky Game</title>
+<title>Swipe Game</title>
 
 <style>
 * {
@@ -191,35 +191,16 @@ function rand(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-let nextSockData = null;
-let nextSockImage = new Image();
-
-function prepareNextSock() {
+function spawnSock() {
   const cat = rand(categories);
   const index = rand(cat.pool);
 
-  const src = `assets/socks/${cat.key}_${index}.png`;
+  currentSock = cat;
 
-  nextSockData = {
-    ...cat,
-    src
-  };
-
-  nextSockImage = new Image();
-  nextSockImage.src = src; // preload
-}
-
-function spawnSock() {
-  if (!nextSockData) prepareNextSock();
-
-  currentSock = nextSockData;
-
-  sockImg.src = nextSockData.src;
+  sockImg.src = `assets/socks/${cat.key}_${index}.png`;
 
   const bgIndex = Math.floor(Math.random() * 10) + 1;
   cardBg.src = `assets/cards/${bgIndex}.png`;
-
-  prepareNextSock(); // připrav další dopředu
 }
 
 function updateHUD() {
