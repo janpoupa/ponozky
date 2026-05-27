@@ -21,9 +21,9 @@ html, body {
   height: 100%;
   overflow: hidden;
   background: #111;
-font-family: "Boldonse", system-ui;
-font-weight: 400;
-font-style: normal;
+  font-family: "Boldonse", system-ui;
+  font-weight: 400;
+  font-style: normal;
   color: #fff;
 }
 
@@ -68,7 +68,7 @@ body {
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-    width: 80%;
+  width: 80%;
   height: 80%;
 }
 
@@ -109,6 +109,33 @@ button {
 .hint.top-right { bottom: 50%; right: -25px; transform: translateX(50%); rotate: 90deg;}
 .hint.bottom-left { bottom: 25px; left: 50%; transform: translateX(-50%); }
 .hint.bottom-right { top: 70px; right: 50%; transform: translateX(50%); }
+
+/* COUNTDOWN */
+@keyframes countPop {
+  0%   { transform: scale(2.2); opacity: 0; }
+  20%  { transform: scale(1.0); opacity: 1; }
+  70%  { transform: scale(1.0); opacity: 1; }
+  100% { transform: scale(0.5); opacity: 0; }
+}
+
+#overlayText.countdown {
+  font-size: 120px;
+  animation: countPop 0.95s ease-in-out forwards;
+}
+
+/* FEEDBACK POPUPS */
+@keyframes feedbackFloat {
+  0%   { opacity: 1;  transform: translateY(0px); }
+  100% { opacity: 0;  transform: translateY(-55px); }
+}
+
+.feedback-popup {
+  position: fixed;
+  font-size: 26px;
+  pointer-events: none;
+  z-index: 20;
+  animation: feedbackFloat 0.9s ease-out forwards;
+}
 
 
 </style>
@@ -257,13 +284,49 @@ function endGame(win) {
   clearInterval(timer);
   isGameRunning = false;
 
-  overlay.style.display = 'flex';
+  overlayText.className = '';
+  overlayText.style.fontSize = '';
   overlayText.textContent = win ? "VYHRÁL JSI" : "GAME OVER";
   overlayTextins.style.display = 'none';
   startBtn.textContent = "HRÁT ZNOVU";
+  startBtn.style.display = '';
+  overlay.style.display = 'flex';
 }
 
-startBtn.addEventListener('click', startGame);
+startBtn.addEventListener('click', beginCountdown);
+
+function beginCountdown() {
+  startBtn.style.display = 'none';
+  overlayText.className = '';
+  overlayText.style.fontSize = '';
+  overlayText.textContent = 'Připrav se!';
+  overlayTextins.style.display = 'block';
+  overlayTextins.style.fontSize = '20px';
+  overlayTextins.innerHTML = 'Roztřiď <b>20 ponožek</b><br>za <b>30 sekund</b>!';
+  setTimeout(() => runCountdown(3), 1600);
+}
+
+function runCountdown(n) {
+  overlayTextins.style.display = 'none';
+  if (n === 0) { startGame(); return; }
+  overlayText.className = '';
+  void overlayText.offsetWidth;
+  overlayText.textContent = n;
+  overlayText.className = 'countdown';
+  setTimeout(() => runCountdown(n - 1), 950);
+}
+
+function showFeedback(text, color, anchorEl) {
+  const rect = anchorEl.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'feedback-popup';
+  el.textContent = text;
+  el.style.color = color;
+  el.style.left = (rect.left + rect.width / 2 - 24) + 'px';
+  el.style.top = (rect.bottom + 4) + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 950);
+}
 
 // HAMMER
 const hammer = new Hammer(card);
@@ -321,13 +384,13 @@ hammer.on('panend', () => {
     card.style.transform = `translate(${outX}px, ${outY}px)`;
 
     if (direction === currentSock.dir) {
-      console.log("SPRÁVNĚ!");
       remaining--;
+      showFeedback('-1', '#4ade80', remainingEl);
       if (remaining <= 0) endGame(true);
     } else {
-      console.log("ŠPATNĚ!");
       time -= 3;
       if (time < 0) time = 0;
+      showFeedback('-3s', '#f87171', timeEl);
     }
 
     updateHUD();
